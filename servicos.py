@@ -3,7 +3,7 @@ from models import db, Cliente, Vaga, Rua, Cidade, Fiscal
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://postgres:brenodias@localhost/postgres'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://postgres:123@localhost/postgres'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -112,6 +112,34 @@ def get_all_spots():
 
     return jsonify(spots), 200
 
+
+@app.route('/add_time_to_spot', methods=['POST'])
+def add_time_to_spot():
+    data = request.get_json()
+    placa_do_carro = data.get('placaDoCarro')
+    new_time = data.get('tempo')
+
+    if not placa_do_carro or not new_time:
+        return jsonify({'message': 'Dados incompletos fornecidos.'}), 400
+
+    # Consulta a vaga ativa do cliente
+    current_time = datetime.now()
+    active_spot = Vaga.query.filter(
+        Vaga.placadocarro == placa_do_carro,
+        Vaga.horasaida > current_time,
+        Vaga.expirada == False
+    ).first()
+
+    if not active_spot:
+        return jsonify({'message': 'Não há vaga ativa para o cliente.'}), 404
+
+    # Adiciona o novo tempo à vaga
+    active_spot.horasaida += timedelta(hours=int(new_time))
+    db.session.commit()
+
+    response = {'message': 'Tempo adicionado à vaga com sucesso!'}
+    return jsonify(response), 200
+
 @app.route('/buy_spot', methods=['POST'])
 def buy_spot():
     data = request.get_json()
@@ -213,7 +241,6 @@ def get_all_expired_spots_per_street():
 
     expired_spots = Vaga.query.filter(
         Vaga.idrua == street_obj.id,
-        Vaga.horasaida < current_time,
         Vaga.expirada == True
     ).all()
 
@@ -304,5 +331,5 @@ def get_cliente_info():
 
     return jsonify({'message': 'CPF não encontrado no sistema.'}), 404
    
-if __name__ == '__main__':
+if __name__ == '_main_':
     app.run(debug=True)
