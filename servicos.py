@@ -331,5 +331,5 @@ def get_cliente_info():
 
     return jsonify({'message': 'CPF não encontrado no sistema.'}), 404
    
-if __name__ == '_main_':
+if __name__ == '__main__':
     app.run(debug=True)
