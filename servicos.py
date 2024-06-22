@@ -15,7 +15,6 @@ CORS(app)
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
-    print('Register Request JSON:', data)
     new_cliente = Cliente(
         placadocarro=data['placadocarro'],
         cpf=data['cpf'],
@@ -28,23 +27,15 @@ def register():
     try:
         db.session.add(new_cliente)
         db.session.commit()
-        response = {'message': 'Cliente registrado com sucesso!'}
-        print('Register Response:', response)
-        return jsonify(response), 201
+        return jsonify({'message': 'Cliente registrado com sucesso!'}), 201
     except Exception as e:
-        error_response = {'message': 'Erro ao registrar cliente.', 'error': str(e)}
-        print('Register Error:', error_response)
-        return jsonify(error_response), 500
+        return jsonify({'message': 'Erro ao registrar cliente.', 'error': str(e)}), 500
 
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    print('Login Request JSON:', data)
-    
     email = data['email']
     senha = data['senha']
-    
-    print('Login Email:', email, 'Senha:', senha)
     
     cliente = Cliente.query.filter_by(email=email).first()
     if not cliente:
@@ -53,28 +44,22 @@ def login():
     if cliente.senha != senha:
         return jsonify({'message': 'Senha incorreta.'}), 401
     
-    response = {'message': 'Login realizado com sucesso!', 'placaDoCarro': cliente.placadocarro}
-    return jsonify(response)
+    return jsonify({'message': 'Login realizado com sucesso!', 'placaDoCarro': cliente.placadocarro})
 
 @app.route('/login_fiscal', methods=['POST'])
 def login_fiscal():
     data = request.get_json()
-    print('Login Request JSON:', data)
-    
     cpf = data['cpf']
     senha = data['senha']
     
-    print('Login cpf:', cpf, 'Senha:', senha)
-    
     fiscal = Fiscal.query.filter_by(cpf=cpf).first()
     if not fiscal:
-        return jsonify({'message': 'cpf não encontrado no sistema.'}), 401
+        return jsonify({'message': 'CPF não encontrado no sistema.'}), 401
     
     if fiscal.senha != senha:
         return jsonify({'message': 'Senha incorreta.'}), 401
     
-    response = {'message': 'Login realizado com sucesso!', 'cpf': fiscal.cpf}
-    return jsonify(response)
+    return jsonify({'message': 'Login realizado com sucesso!', 'cpf': fiscal.cpf})
 
 @app.route('/active_spot', methods=['POST'])
 def get_active_spot():
@@ -85,7 +70,6 @@ def get_active_spot():
 
     current_time = datetime.now()
 
-    # Consulta a vaga ativa do cliente com JOIN nas tabelas de Rua e Cidade
     active_spot = db.session.query(Vaga, Rua, Cidade).join(Rua, Vaga.idrua == Rua.id).join(Cidade, Rua.idcidade == Cidade.id).filter(
         Vaga.placadocarro == placa_do_carro,
         Vaga.horasaida > current_time,
@@ -111,7 +95,6 @@ def get_all_spots():
     if not placa_do_carro:
         return jsonify({'message': 'Placa do carro não fornecida.'}), 400
 
-    # Consulta todas as vagas do cliente com JOIN nas tabelas de Rua e Cidade
     all_spots = db.session.query(Vaga, Rua, Cidade).join(Rua, Vaga.idrua == Rua.id).join(Cidade, Rua.idcidade == Cidade.id).filter(
         Vaga.placadocarro == placa_do_carro
     ).all()
@@ -140,7 +123,6 @@ def buy_spot():
     if not placa_do_carro or not cidade or not rua or not tempo:
         return jsonify({'message': 'Dados incompletos fornecidos.'}), 400
 
-    # Consulta a cidade e a rua
     cidade_obj = Cidade.query.filter_by(nome=cidade).first()
     if not cidade_obj:
         return jsonify({'message': 'Cidade não encontrada.'}), 404
@@ -149,11 +131,9 @@ def buy_spot():
     if not rua_obj:
         return jsonify({'message': 'Rua não encontrada.'}), 404
 
-    # Calcula o horário de entrada e saída
     hora_entrada = datetime.now()
     hora_saida = hora_entrada + timedelta(hours=int(tempo))
 
-    # Cria a nova vaga
     new_spot = Vaga(
         placadocarro=placa_do_carro,
         idrua=rua_obj.id,
@@ -165,11 +145,9 @@ def buy_spot():
     try:
         db.session.add(new_spot)
         db.session.commit()
-        response = {'message': 'Vaga comprada com sucesso!'}
-        return jsonify(response), 201
+        return jsonify({'message': 'Vaga comprada com sucesso!'}), 201
     except Exception as e:
-        error_response = {'message': 'Erro ao comprar vaga.', 'error': str(e)}
-        return jsonify(error_response), 500
+        return jsonify({'message': 'Erro ao comprar vaga.', 'error': str(e)}), 500
 
 @app.route('/expire_spot', methods=['POST'])
 def expire_spot():
@@ -189,12 +167,10 @@ def expire_spot():
     if not active_spot:
         return jsonify({'message': 'Não há vaga ativa para o cliente.'}), 404
 
-    # Atualiza a vaga para expirada
     active_spot.expirada = True
     db.session.commit()
 
-    response = {'message': 'Vaga expirada com sucesso!'}
-    return jsonify(response), 200
+    return jsonify({'message': 'Vaga expirada com sucesso!'}), 200
 
 @app.route('/all_cities', methods=['GET'])
 def get_all_cities():
@@ -235,7 +211,6 @@ def get_all_expired_spots_per_street():
 
     current_time = datetime.now()
 
-    # Consulta todas as vagas expiradas da rua
     expired_spots = Vaga.query.filter(
         Vaga.idrua == street_obj.id,
         Vaga.horasaida < current_time,
@@ -271,7 +246,6 @@ def get_all_active_spots_per_street():
 
     current_time = datetime.now()
 
-    # Consulta todas as vagas ativas da rua
     active_spots = Vaga.query.filter(
         Vaga.idrua == street_obj.id,
         Vaga.horasaida > current_time,
@@ -289,32 +263,46 @@ def get_all_active_spots_per_street():
 
     return jsonify(spots), 200
 
-@app.route('/add_time_to_spot', methods=['POST'])
-def add_time_to_spot():
+@app.route('/fiscal_info', methods=['POST'])
+def get_fiscal_info():
     data = request.get_json()
-    placa_do_carro = data.get('placaDoCarro')
-    new_time = data.get('tempo')
+    cpf = data.get('cpf')
+    
+    if not cpf:
+        return jsonify({'message': 'CPF não fornecido.'}), 400
+    
+    fiscal = Fiscal.query.filter_by(cpf=cpf).first()
+    if fiscal:
+        fiscal_info = {
+            'cpf': fiscal.cpf,
+            'email': fiscal.email,
+            'cidade': fiscal.cidade,
+            'estado': fiscal.estado
+        }
+        return jsonify(fiscal_info), 200
 
-    if not placa_do_carro or not new_time:
-        return jsonify({'message': 'Dados incompletos fornecidos.'}), 400
+    return jsonify({'message': 'CPF não encontrado no sistema.'}), 404
 
-    # Consulta a vaga ativa do cliente
-    current_time = datetime.now()
-    active_spot = Vaga.query.filter(
-        Vaga.placadocarro == placa_do_carro,
-        Vaga.horasaida > current_time,
-        Vaga.expirada == False
-    ).first()
+@app.route('/cliente_info', methods=['POST'])
+def get_cliente_info():
+    data = request.get_json()
+    placadocarro = data.get('placadocarro')
+    
+    if not placadocarro:
+        return jsonify({'message': 'Placa do carro não fornecida.'}), 400
+    
+    cliente = Cliente.query.filter_by(placadocarro=placadocarro).first()
+    if cliente:
+        cliente_info = {
+            'cpf': cliente.cpf,
+            'placaDoCarro': cliente.placadocarro,
+            'email': cliente.email,
+            'estado': cliente.estado,
+            'cidade': cliente.cidade
+        }
+        return jsonify(cliente_info), 200
 
-    if not active_spot:
-        return jsonify({'message': 'Não há vaga ativa para o cliente.'}), 404
-
-    # Adiciona o novo tempo à vaga
-    active_spot.horasaida += timedelta(hours=int(new_time))
-    db.session.commit()
-
-    response = {'message': 'Tempo adicionado à vaga com sucesso!'}
-    return jsonify(response), 200
-
+    return jsonify({'message': 'CPF não encontrado no sistema.'}), 404
+   
 if __name__ == '__main__':
     app.run(debug=True)
